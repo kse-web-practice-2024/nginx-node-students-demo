@@ -2,8 +2,10 @@ import Fastify from 'fastify';
 import fs from 'fs';
 import jwt from 'jsonwebtoken'
 import sqlite3 from 'sqlite3';
+import {getAuthInfo} from "./get-auth-info.js";
+import {JWT_SECRET} from "./secrets.js";
+import {getCats} from "./get-cats.js";
 
-const JWT_SECRET = 'SOME_SECRET_HERE'
 
 const fastify = Fastify({ logger: true });
 
@@ -29,37 +31,24 @@ const fastify = Fastify({ logger: true });
 //     return reply.send(file)
 // });
 
-const URL = 'https://api.thecatapi.com/v1/breeds'
+
 const API_KEY = "live_qNGmmIapMgENtt7DfBD9VQVqohCHDu4AepQDIW3LfFQ0BhJ1wyV77I6cnM6aRfRn";
+
 
 fastify.get('/api', async (req, reply) => {
     const authHeader = req.headers.authorization;
-    const token = authHeader.replace('Bearer ', '');
-    try {
-        const decodedData = jwt.verify(token, JWT_SECRET)
 
-        const currentTime = Date.now() / 1000
-        console.log(decodedData, decodedData.iat, currentTime)
-        if (decodedData.iat < currentTime - 25 * 60 * 1000) {
-            reply.code(401)
-            return reply.send('Not authorized')
-        }
-    } catch(e) {
-        console.log(e)
-        return reply.code(500).send(e)
+    const user = getAuthInfo(authHeader, JWT_SECRET)
+    if (!user) {
+        reply.code(401)
+        return reply.send('Not authorized')
     }
 
-
-    const res = await fetch(URL, {
-        headers: new Headers({
-            "x-api-key": API_KEY
-        })
-    })
-    const data = await res.json()
+    const cats = await getCats(fetch, API_KEY)
 
     reply.type('application/json')
 
-    return reply.send(data)
+    return reply.send(cats)
 });
 
 
